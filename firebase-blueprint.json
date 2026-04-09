@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Data akun mahasiswa atau admin",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "nim": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "student"] },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "ExamPackage": {
+      "title": "Exam Package",
+      "description": "Paket soal ujian",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["multiple-choice", "essay"] },
+        "optionsCount": { "type": "number" },
+        "duration": { "type": "number" },
+        "questionCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive", "running"] },
+        "description": { "type": "string" },
+        "shuffle": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "duration", "status"]
+    },
+    "Passage": {
+      "title": "Passage",
+      "description": "Teks cerita atau bacaan untuk beberapa soal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "packageId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "required": ["packageId", "title", "content"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Soal dalam paket ujian",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "packageId": { "type": "string" },
+        "passageId": { "type": "string" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "options": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "correctKey": { "type": "string" },
+        "weight": { "type": "number" }
+      },
+      "required": ["packageId", "text"]
+    },
+    "ExamResult": {
+      "title": "Exam Result",
+      "description": "Hasil pengerjaan ujian mahasiswa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "studentNim": { "type": "string" },
+        "studentName": { "type": "string" },
+        "packageId": { "type": "string" },
+        "packageTitle": { "type": "string" },
+        "score": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "answers": { "type": "object" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentUid", "packageId", "score"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Koleksi pengguna"
+    },
+    "/examPackages/{packageId}": {
+      "schema": "ExamPackage",
+      "description": "Koleksi paket soal"
+    },
+    "/examPackages/{packageId}/questions/{questionId}": {
+      "schema": "Question",
+      "description": "Koleksi soal per paket"
+    },
+    "/examPackages/{packageId}/passages/{passageId}": {
+      "schema": "Passage",
+      "description": "Koleksi teks bacaan per paket"
+    },
+    "/examResults/{resultId}": {
+      "schema": "ExamResult",
+      "description": "Koleksi hasil ujian"
+    }
+  }
+}

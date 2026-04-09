@@ -1,0 +1,148 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Fields:
+//   - uid: string (required)
+//   - nim: string (optional)
+//   - name: string (required)
+//   - email: string (required)
+//   - role: string (required, 'admin' or 'student')
+//   - status: string (required, 'active' or 'inactive')
+//   - createdAt: timestamp (required)
+//
+// Collection: examPackages
+// Fields:
+//   - title: string (required)
+//   - type: string (required, 'multiple-choice', 'essay')
+//   - optionsCount: number (optional)
+//   - duration: number (required)
+//   - questionCount: number (required)
+//   - status: string (required, 'active', 'inactive', 'running')
+//   - description: string (optional)
+//   - shuffle: bool (required)
+//   - createdAt: timestamp (required)
+//
+// Collection: examPackages/{packageId}/passages
+// Fields:
+//   - title: string (required)
+//   - content: string (required)
+//
+// Collection: examPackages/{packageId}/questions
+// Fields:
+//   - text: string (required)
+//   - imageUrl: string (optional)
+//   - passageId: string (optional)
+//   - options: map (optional)
+//   - correctKey: string (optional)
+//   - weight: number (required)
+//
+// Collection: examResults
+// Fields:
+//   - studentUid: string (required)
+//   - studentNim: string (required)
+//   - studentName: string (required)
+//   - packageId: string (required)
+//   - packageTitle: string (required)
+//   - score: number (required)
+//   - correctCount: number (required)
+//   - totalQuestions: number (required)
+//   - answers: map (required)
+//   - startTime: timestamp (required)
+//   - endTime: timestamp (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email == "972023032@student.uksw.edu" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUser(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'student'] &&
+             data.status in ['active', 'inactive'];
+    }
+
+    function isValidExamPackage(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.type in ['multiple-choice', 'essay'] &&
+             data.duration is number && data.duration > 0 &&
+             data.status in ['active', 'inactive', 'running'];
+    }
+
+    function isValidPassage(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.content is string && data.content.size() > 0;
+    }
+
+    function isValidQuestion(data) {
+      return data.text is string && data.text.size() > 0 &&
+             data.weight is number;
+    }
+
+    function isValidExamResult(data) {
+      return data.studentUid == request.auth.uid &&
+             data.score is number && data.score >= 0;
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /examPackages/{packageId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidExamPackage(request.resource.data);
+      allow delete: if isAdmin();
+      
+      match /questions/{questionId} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAdmin() && isValidQuestion(request.resource.data);
+        allow delete: if isAdmin();
+      }
+
+      match /passages/{passageId} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAdmin() && isValidPassage(request.resource.data);
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /examResults/{resultId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.studentUid || isAdmin());
+      allow create: if isAuthenticated() && isValidExamResult(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+  }
+}
